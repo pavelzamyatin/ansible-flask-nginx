@@ -1,1 +1,1 @@
-# ansible-flask-nginx
+# Deploying Flask application with Ansible and running in Python Virtual Environment
