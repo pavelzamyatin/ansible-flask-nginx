@@ -1,0 +1,65 @@
+---
+- hosts: "{{ host_name }}"
+
+  remote_user: "{{ remote_user }}"
+  become: yes
+  become_method: sudo
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+    # ----- NGINX CONFIG ----- #
+
+    - name: Add Nginx Repository
+      apt_repository: repo='ppa:nginx/stable' state=present
+      register: ppanginxstable
+
+    - name: Install Nginx
+      apt: pkg=nginx update_cache=yes state=installed
+      when: ppanginxstable|success
+      register: nginxinstalled
+      notify:
+        - Start Nginx
+
+    - name: Disable Default Site
+      when: nginxinstalled|success
+      file: dest=/etc/nginx/sites-enabled/default state=absent
+
+    - name: Add Nginx Config
+      when: nginxinstalled|success
+      register: siteconfig
+      template: src=nginx.j2 dest=/etc/nginx/sites-available/{{ server_name }}.conf owner=root group=root
+
+    - name: Enable Site Config
+      when: siteconfig|success
+      file: src=/etc/nginx/sites-available/{{ server_name }}.conf dest=/etc/nginx/sites-enabled/{{ server_name }}.conf state=link
+
+
+    - name: Create Web root
+      when: nginxinstalled|success
+      file: dest={{ install_root }}/{{ project_name }} mode=775 state=directory owner={{ remote_user }} group=www-data
+
+    # ----- PYTHON CONFIG ----- #
+
+    - name: Add Python Repository
+      apt_repository: repo='ppa:fkrull/deadsnakes' state=present
+      register: ppapython
+
+    - name: Install Python
+      apt: name={{ item }} update_cache=yes state=installed
+      with_items:
+        - git
+        - python3.5
+        - python3-pip
+        - python3.5-venv
+      when: ppapython|success
+      register: pythoninstalled
+
+    # ----- HANDLERS ----- #  
+
+  handlers:
+
+    - name: Start Nginx
+      service: name=nginx state=started

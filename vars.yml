@@ -1,0 +1,31 @@
+---
+# host name for ansible playbook
+# you should change server list here: /etc/ansible/hosts  
+host_name: test
+
+# remote user for server
+remote_user: corw
+
+# a unix path-friendly name
+project_name: fletter
+
+# the base path to install to
+install_root: /app
+
+# the correct wsgi_module value would be `hello.wsgi`
+wsgi_module: wsgi
+
+# any directories that need to be added to the PYTHONPATH.
+pythonpath: "{{ install_root }}/{{ project_name }}/app"
+
+# the git repository URL for the project
+project_repo: https://github.com/herrjemand/fletter.git
+    
+# a private key that has access to the repository URL
+ssh_private_key: ~/.ssh/id_rsa
+
+# The value of project's STATIC_ROOT settings.
+static_root: "{{ install_root }}/{{ project_name }}/static"
+
+# the dns name or names (space separated)
+server_name: fletter.domain.com

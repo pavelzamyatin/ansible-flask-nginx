@@ -1,0 +1,57 @@
+---
+- hosts: "{{ host_name }}"
+
+  remote_user: "{{ remote_user }}"
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+    # ----- GIT ----- #
+
+    - name: Clone/pull project repo
+      git: repo={{ project_repo }} dest={{ install_root }}/{{ project_name }} accept_hostkey=yes
+      register: gitcloned
+
+    # ----- VENV ----- #
+
+    - name: Install VENV
+      script: files/install_venv.sh
+      when: gitcloned|success
+      register: venvinstalled   
+
+    # ----- GUNICORN CONFIG ----- #
+
+    - name: Add WSGI file
+      copy: src=files/wsgi.py dest={{ install_root }}/{{ project_name }}/wsgi.py
+      when: venvinstalled|success
+      register: wsgicopied
+
+    - name: Add Gunicorn Config
+      become: yes
+      become_method: sudo
+      template: src=gunicorn.j2 dest=/etc/init/gunicorn-{{ project_name }}.conf owner=root group=root
+      when: wsgicopied|success
+      notify:
+        - Start Gunicorn
+        - Restart Nginx
+
+    # ----- FINAL PERMISSION ----- #
+
+    - name: Web Root Permissions
+      become: yes
+      become_method: sudo
+      file: dest={{ install_root }}/{{ project_name }} mode=775 state=directory owner={{ remote_user }} group=www-data recurse=yes
+
+  handlers:
+
+    - name: Restart Nginx
+      become: yes
+      become_method: sudo
+      service: name=nginx state=reloaded
+
+    - name: Start Gunicorn
+      become: yes
+      become_method: sudo
+      command: start gunicorn-{{ project_name }}
